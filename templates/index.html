@@ -44,15 +44,14 @@
 
           {# Don't allow guesses if the game is over. #}
           {% if not data.game.game_over %}
-            {% if data.game.invalid_guess %}
-              <span>Invalid guess, please try again!</span>
-            {% endif %}
             <form method="post">
-              <input type="text" name="guess-text" autofocus>
+              <input {% if data.game.invalid_guess %}class="is-invalid"{% endif %}
+                     type="text" name="guess-text" placeholder="Guessed Letter" autofocus>
               <input type="submit" name="guess" value="Guess!">
-            </form>
-            <form method="post">
               <input type="submit" name="exit" value="Exit">
+              {% if data.game.invalid_guess %}
+                <div class="invalid-feedback">Invalid guess, please try again!</div>
+              {% endif %}
             </form>
           {% endif %}
 
@@ -61,7 +60,8 @@
               {# input to high scores #}
               <div>Congrats, you've won!</div>
               <form method="post">
-                <input type="text" name="user">
+                {# Match user name length w/ database string size. #}
+                <input type="text" name="user" maxlength="20" placeholder="User Name" autofocus>
                 <input type="submit" name="high-score" value="Submit Score">
               </form>
 
@@ -74,10 +74,25 @@
           {% endif %}
         {% endif %}
       </div>
-      {# TODO: Leaderboard #}
-      <div class="col-md-4">
-
+      {# Leaderboard #}
+      {% if data.leaderboard %}
+      <div class="col-md-4 leaderboard">
+        <h2 class="border">High Scores</h2>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th scope="col">User</th>
+              <th scope="col">Wrong Guesses (#)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for user, score in data.leaderboard %}
+            <tr><th>{{ user }}</th><th>{{ score }}</th></tr>
+          {% endfor %}
+          </tbody>
+        </table>
       </div>
+      {% endif %}
     </div>
     <hr>
   </div>

@@ -4,11 +4,34 @@ from flask import Flask
 from flask import render_template
 from flask import request
 from flask import session
+from flask_sqlalchemy import SQLAlchemy
 
 from game import Hangman
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sqlite.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+
+# Database setup/configuration
+db = SQLAlchemy(app)
+
+
+class Score(db.Model):
+    USER_NAME_MAX_LENGTH = 20
+
+    id = db.Column(db.Integer, primary_key=True)
+    user = db.Column(db.String(USER_NAME_MAX_LENGTH), unique=False, nullable=False)
+    score = db.Column(db.String(64), unique=False, nullable=False)
+
+    def __repr__(self):
+        return '<Score %s %s>' % (self.user, self.score)
+
+
+def get_leaderboard_data():
+    return [(score.user, score.score) for score
+            in Score.query.order_by(Score.score, Score.user).limit(10).all()]
+
 
 # Map of game identifiers to in-progress games.
 games = {}
@@ -16,7 +39,7 @@ games = {}
 
 # 2020/03/16 : 70m (+15m images), website
 # 2020/03/17 : 100m, website
-# 2020/03/18 : , website (leaderboard/database)
+# 2020/03/18 : 60m, website (leaderboard/database)
 # 2020/03/19 : , api
 @app.route('/', methods=['GET', 'POST'])
 def website():
@@ -38,7 +61,7 @@ def website():
             # or a game does not exist for the session data.
             session.pop('hangman', None)
             return render_template('index.html', data={
-                'leaderboard': {}  # TODO: Include valid leaderboard data.
+                'leaderboard': get_leaderboard_data()
             })
 
     elif request.method == 'POST':
@@ -78,18 +101,22 @@ def website():
         elif 'high-score' in request.form or 'exit' in request.form:
             # The game is over, remove the game and session.
             if 'high-score' in request.form:
-                # TODO: Save high score.
-                pass
+                # Note: High score is # of tries used, so lower is better.
+                # Ensure the user name length is valid.
+                user = request.form['user'][:Score.USER_NAME_MAX_LENGTH]
+                score = game.get_tries()
+                db.session.add(Score(user=user, score=score))
+                db.session.commit()
 
             del games[identifier]
             del session['hangman']
 
             return render_template('index.html', data={
-                'leaderboard': {}  # TODO: Include valid leaderboard data.
+                'leaderboard': get_leaderboard_data()
             })
 
     return render_template('index.html', data={
-        'leaderboard': {},  # TODO: Include valid leaderboard data.
+        'leaderboard': get_leaderboard_data(),
         'game': {
             'tries': game.get_tries(),
             'guesses': game.get_guesses(),

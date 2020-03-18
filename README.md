@@ -41,3 +41,17 @@
 
 - Phrases and guesses are assumed to be alpha-numeric only.
 - The case (uppercase/lowercase) of phrases and guesses does not matter.
+
+- Scores are defined as the number of tries to complete the game.
+- Leaderboard shows top 10 high scores.
+
+## Deployment
+
+virtualenv
+
+```python
+from app import db
+db.create_all()
+```
+
+export FLASK_ENV=development
