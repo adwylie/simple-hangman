@@ -1,5 +1,6 @@
 class Hangman:
     MAXIMUM_TRIES = 5
+    PHRASES = ['3dhubs', 'marvin', 'print', 'filament', 'order', 'layer']
 
     def __init__(self, phrase, guesses=None, tries=None):
         # Allow an existing game to be continued if given all arguments.
@@ -51,13 +52,10 @@ class Hangman:
 if __name__ == '__main__':
     import random
 
-
     def get_input():
         return input("Enter your guess: ").strip()
 
-
-    phrases = ['3dhubs', 'marvin', 'print', 'filament', 'order', 'layer']
-    game = Hangman(random.choice(phrases))
+    game = Hangman(random.choice(Hangman.PHRASES))
 
     while not game.is_game_over():
 

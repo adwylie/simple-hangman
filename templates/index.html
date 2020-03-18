@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <title>Hangman</title>
+</head>
+<body>
+<nav class="navbar navbar-dark fixed-top bg-dark">
+  <span class="navbar-brand mb-0 h1">
+    <img src="{{ url_for('static', filename='img/hangman-5.svg') }}"
+         width="30" height="30" class="d-inline-block align-top" alt="">
+    Hangman
+  </span>
+</nav>
+<main role="main">
+  <div class="container">
+    <div class="row">
+      {# Either game description or game depending on state. #}
+      <div class="col-md-8">
+        {% if not data.game %}
+          <div>description here of the game I guess</div>
+          <form method="post"><input type="submit" name="play" value="Play the game!"></form>
+
+        {% else %}
+          {# TODO: Improve alt text. #}
+          <img class="hanged-man"
+               src="/static/img/hangman-{{ data.game.tries }}.svg"
+               alt="{{ data.game.tries }} tries used!">
+
+          <div class="letters">
+            {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' %}
+              {% if letter.lower() in data.game.guesses %}
+                <span class="letter guessed">{{ letter }}</span>
+              {% else %}
+                <span class="letter">{{ letter }}</span>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <div class="phrase">{{ data.game.phrase }}</div>
+
+          {# Don't allow guesses if the game is over. #}
+          {% if not data.game.game_over %}
+            {% if data.game.invalid_guess %}
+              <span>Invalid guess, please try again!</span>
+            {% endif %}
+            <form method="post">
+              <input type="text" name="guess-text" autofocus>
+              <input type="submit" name="guess" value="Guess!">
+            </form>
+            <form method="post">
+              <input type="submit" name="exit" value="Exit">
+            </form>
+          {% endif %}
+
+          {% if data.game.game_over %}
+            {% if data.game.game_won %}
+              {# input to high scores #}
+              <div>Congrats, you've won!</div>
+              <form method="post">
+                <input type="text" name="user">
+                <input type="submit" name="high-score" value="Submit Score">
+              </form>
+
+            {% else %}
+              <div>Oh no! You've lost the game :(</div>
+              <form method="post">
+                <input type="submit" name="exit" value="Exit">
+              </form>
+            {% endif %}
+          {% endif %}
+        {% endif %}
+      </div>
+      {# TODO: Leaderboard #}
+      <div class="col-md-4">
+
+      </div>
+    </div>
+    <hr>
+  </div>
+</main>
+<footer class="container">
+  <p>© Andrew Wylie 2020</p>
+</footer>
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+</body>
+</html>

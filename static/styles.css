@@ -1,0 +1,22 @@
+
+body {
+    padding-top: 5rem;
+}
+
+.navbar-brand img {
+    background-color: white;
+    border-radius: 3px;
+}
+
+.phrase {
+    font-size: larger;
+    letter-spacing: .25em;
+}
+
+.guessed {
+    text-decoration: line-through;
+}
+
+.hanged-man {
+    width: 400px;
+}
