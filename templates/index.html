@@ -20,10 +20,16 @@
     <div class="row">
       {# Either game description or game depending on state. #}
       <div class="col-md-8">
+        <h2>Hangman Game</h2>
         {% if not data.game %}
-          {# TODO: Game description. #}
-          <div>TODO</div>
-          <form method="post"><input type="submit" name="play" value="Play the game!"></form>
+          <p>Here we have a Hangman game! Unknown phrases are given which
+             must then be solved letter by letter. The game ends if too many
+             incorrect guesses are made. In this version of the game it only
+             takes 5 incorrect guesses to lose the game. Dare to try? Click
+             'Play the game!' below to start. :D</p>
+          <form method="post">
+            <input type="submit" name="play" value="Play the game!" autofocus>
+          </form>
 
         {% else %}
           {# TODO: Improve alt text. #}
@@ -69,7 +75,7 @@
             {% else %}
               <div>Oh no! You've lost the game :(</div>
               <form method="post">
-                <input type="submit" name="exit" value="Exit">
+                <input type="submit" name="exit" value="Exit" autofocus>
               </form>
             {% endif %}
           {% endif %}

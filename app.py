@@ -182,7 +182,7 @@ class GameAPI(Resource):
             game = games[identifier]
 
             game_json = get_game_obj(game, id=identifier)
-            return game_json, 201
+            return game_json, 200
 
         except KeyError:
             abort(404)
@@ -270,7 +270,12 @@ class GameScoreAPI(Resource):
 
                 # Scores don't have a specific location,
                 # so we won't add a Location header.
-                return user_score, 201
+                user_score_json = {
+                    'id': user_score.id,
+                    'user': user_score.user,
+                    'score': user_score.score
+                }
+                return user_score_json, 201
 
             else:
                 abort(400)
