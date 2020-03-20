@@ -219,7 +219,7 @@ returned.
 If successful this endpoint will return an 'HTTP 200 OK' response.
 
 ```
-$ curl -v "http://127.0.0.1:5000/api/scores"
+$ curl -v "http://localhost:5000/api/scores"
 
 [
     {
