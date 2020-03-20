@@ -21,7 +21,8 @@
       {# Either game description or game depending on state. #}
       <div class="col-md-8">
         {% if not data.game %}
-          <div>description here of the game I guess</div>
+          {# TODO: Game description. #}
+          <div>TODO</div>
           <form method="post"><input type="submit" name="play" value="Play the game!"></form>
 
         {% else %}
@@ -58,7 +59,7 @@
           {% if data.game.game_over %}
             {% if data.game.game_won %}
               {# input to high scores #}
-              <div>Congrats, you've won!</div>
+              <div>Congratulations, you've won!</div>
               <form method="post">
                 {# Match user name length w/ database string size. #}
                 <input type="text" name="user" maxlength="20" placeholder="User Name" autofocus>
@@ -86,8 +87,11 @@
             </tr>
           </thead>
           <tbody>
-          {% for user, score in data.leaderboard %}
-            <tr><th>{{ user }}</th><th>{{ score }}</th></tr>
+          {% for user_score in data.leaderboard %}
+            <tr>
+              <th>{{ user_score.user }}</th>
+              <th>{{ user_score.score }}</th>
+            </tr>
           {% endfor %}
           </tbody>
         </table>

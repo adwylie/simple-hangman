@@ -27,7 +27,8 @@ class Hangman:
     def is_guess_valid(self, guess):
         # The input guess must be a single character, alphanumeric,
         # and must not have already been guessed.
-        if len(guess) == 1 \
+        if guess and isinstance(guess, str) \
+                and len(guess) == 1 \
                 and guess.isalnum() \
                 and guess.lower() not in self.guesses:
             return True
@@ -42,7 +43,7 @@ class Hangman:
     def get_guesses(self):
         """Convenience function for GUI (show user which letters are available)."""
         # Return a copy of the guesses so it can't be modified.
-        return set(self.guesses)
+        return self.guesses - {' '}
 
     def get_tries(self):
         """Convenience function for GUI (drawing the hanged man)."""

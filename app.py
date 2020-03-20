@@ -4,6 +4,9 @@ from flask import Flask
 from flask import render_template
 from flask import request
 from flask import session
+from flask_restful import Api
+from flask_restful import abort
+from flask_restful import Resource
 from flask_sqlalchemy import SQLAlchemy
 
 from game import Hangman
@@ -13,11 +16,12 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sqlite.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
-# Database setup/configuration
+api = Api(app)
 db = SQLAlchemy(app)
 
 
-class Score(db.Model):
+# Database-related classes etc.
+class UserScore(db.Model):
     USER_NAME_MAX_LENGTH = 20
 
     id = db.Column(db.Integer, primary_key=True)
@@ -25,22 +29,49 @@ class Score(db.Model):
     score = db.Column(db.String(64), unique=False, nullable=False)
 
     def __repr__(self):
-        return '<Score %s %s>' % (self.user, self.score)
+        return '<UserScore %s %s>' % (self.user, self.score)
 
 
-def get_leaderboard_data():
-    return [(score.user, score.score) for score
-            in Score.query.order_by(Score.score, Score.user).limit(10).all()]
+def get_leaderboard_data(offset=0, limit=10):
+    return [{'user': user_score.user, 'score': user_score.score} for user_score in
+            UserScore.query.order_by(UserScore.score, UserScore.user)
+            .offset(offset).limit(limit).all()]
 
 
 # Map of game identifiers to in-progress games.
 games = {}
 
 
-# 2020/03/16 : 70m (+15m images), website
-# 2020/03/17 : 100m, website
-# 2020/03/18 : 60m, website (leaderboard/database)
-# 2020/03/19 : , api
+def get_identifier():
+    id_format = '%08x'
+    max_players = 2 ** 32
+
+    identifier = id_format % random.randrange(max_players)
+    while games.get(identifier, None):
+        identifier = id_format % random.randrange(max_players)
+
+    return identifier
+
+
+def get_game_obj(game, **kwargs):
+    """
+    Return a JSON-compatible read-only representation of the game state.
+
+    Additional properties can be added using keyword arguments.
+
+    """
+    # NOTE: Set isn't JSON serializable, so we'll convert it to a list.
+    return {
+        'tries': game.get_tries(),
+        'guesses': list(game.get_guesses()),
+        'phrase': game.get_display_phrase(),
+        'game_over': game.is_game_over(),
+        'game_won': game.is_game_won(),
+        **kwargs
+    }
+
+
+# Web Interface
 @app.route('/', methods=['GET', 'POST'])
 def website():
     invalid_guess = False
@@ -80,10 +111,7 @@ def website():
 
         except KeyError:
             # Clean and recreate session/game.
-            identifier = '%030x' % random.randrange(2**32)
-            while games.get(identifier, None):
-                identifier = '%030x' % random.randrange(2 ** 32)
-
+            identifier = get_identifier()
             game = Hangman(random.choice(Hangman.PHRASES))
 
             games[identifier] = game
@@ -103,9 +131,10 @@ def website():
             if 'high-score' in request.form:
                 # Note: High score is # of tries used, so lower is better.
                 # Ensure the user name length is valid.
-                user = request.form['user'][:Score.USER_NAME_MAX_LENGTH]
+                user = request.form['user'][:UserScore.USER_NAME_MAX_LENGTH]
                 score = game.get_tries()
-                db.session.add(Score(user=user, score=score))
+
+                db.session.add(UserScore(user=user, score=score))
                 db.session.commit()
 
             del games[identifier]
@@ -117,11 +146,153 @@ def website():
 
     return render_template('index.html', data={
         'leaderboard': get_leaderboard_data(),
-        'game': {
-            'tries': game.get_tries(),
-            'guesses': game.get_guesses(),
-            'invalid_guess': invalid_guess,
-            'phrase': game.get_display_phrase(),
-            'game_over': game.is_game_over(),
-            'game_won': game.is_game_won()
-        }})
+        'game': get_game_obj(game, invalid_guess=invalid_guess)})
+
+
+# API methods.
+class GamesAPI(Resource):
+    # Games resource.
+    # Create new game, get games.
+    def get(self):
+        """Get a list of all in-progress games (by identifier)."""
+        # Return the requested games w/ 200, empty list otherwise.
+        return list(games.keys()), 200
+
+    def post(self):
+        """Create a new game."""
+        # Return 201 w/ location header and game data object.
+        identifier = get_identifier()
+        game = Hangman(random.choice(Hangman.PHRASES))
+
+        games[identifier] = game
+
+        game_json = get_game_obj(game, id=identifier)
+        headers = {'Location': api.url_for(GameAPI, identifier=identifier)}
+
+        return game_json, 201, headers
+
+
+class GameAPI(Resource):
+    # Games resource.
+    # Get game, delete game.
+    def get(self, identifier):
+        """Get a specific game."""
+        # Return the requested game w/ 200, 404 otherwise.
+        try:
+            game = games[identifier]
+
+            game_json = get_game_obj(game, id=identifier)
+            return game_json, 201
+
+        except KeyError:
+            abort(404)
+
+    def delete(self, identifier):
+        """Delete a game."""
+        # Remove game and session information,
+        # return 204, or 404 if doesn't exist.
+        try:
+            games.pop(identifier)
+            return '', 204
+
+        except KeyError:
+            abort(404)
+
+
+class GameGuessesAPI(Resource):
+    # Guesses sub-resource.
+    def post(self, identifier):
+        """Update an in-play game with a new guess."""
+        # Update game and return game data object.
+        try:
+            game = games[identifier]
+
+            # Check for a valid game state,
+            # don't allow guesses if game is over.
+            if game.is_game_over():
+                abort(409)
+
+            # Get the guess, validate it, and then update the game.
+            request_json = request.get_json()
+            if not request_json:
+                abort(400)
+
+            guess = request_json.get('guess', None)
+            if game.is_guess_valid(guess):
+                game.guess(guess)
+
+                game_json = get_game_obj(game, id=identifier)
+                return game_json, 200
+
+            else:
+                abort(400)
+
+        except KeyError:
+            # No game exists with the given identifier.
+            abort(404)
+
+
+class GameScoreAPI(Resource):
+    # Score sub-resource.
+    def post(self, identifier):
+        """
+        Submit a score for a won game.
+
+        Also deletes the game after the score has been submitted.
+
+        """
+        # User name passed for a game that is over and has been won.
+        try:
+            game = games[identifier]
+
+            # Check for a valid game state, don't allow score submission
+            # unless the game is over and has been won.
+            if not game.is_game_over() or not game.is_game_won():
+                abort(409)
+
+            # Get the name to submit w/ score,
+            # validate it, and then update the game.
+            request_json = request.get_json()
+            if not request_json:
+                abort(400)
+
+            user = request_json.get('user', None)
+            score = game.get_tries()
+
+            if user and isinstance(user, str) \
+                    and len(user) <= UserScore.USER_NAME_MAX_LENGTH:
+                user_score = UserScore(user=user, score=score)
+                db.session.add(user_score)
+                db.session.commit()
+
+                # TODO: Not great to have POST w/ DELETE semantics.
+                del games[identifier]
+
+                # Scores don't have a specific location,
+                # so we won't add a Location header.
+                return user_score, 201
+
+            else:
+                abort(400)
+
+        except KeyError:
+            # No game exists with the given identifier.
+            abort(404)
+
+
+class ScoresAPI(Resource):
+    # Scores resource.
+    def get(self):
+        """Return (already sorted) leaderboard data."""
+        # Allow query parameters for offset and limit.
+        offset = request.args.get('offset', 0)
+        limit = request.args.get('limit', UserScore.query.count())
+
+        return get_leaderboard_data(offset, limit), 200
+
+
+api.add_resource(GamesAPI, '/api/games')
+api.add_resource(GameAPI, '/api/games/<string:identifier>')
+api.add_resource(GameGuessesAPI, '/api/games/<string:identifier>/guesses')
+api.add_resource(GameScoreAPI, '/api/games/<string:identifier>/score')
+api.add_resource(ScoresAPI, '/api/scores')
